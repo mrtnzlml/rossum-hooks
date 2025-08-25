@@ -3,9 +3,7 @@
 "Searchable PDF" hook creates a searchable PDF (PDF with an invisible text layer) from any supported input format.
 
 > [!IMPORTANT]
-> Note that this function requires a special "professional services" third party library pack and won't work without the involvement of ProServ team.
->
-> To enable it, please contact your account manager.
+> Note that this function requires a special "professional services" third party library pack and won't work without the involvement of ProServ team. To enable it, please contact your account manager.
 
 ## Settings (`hook.settings`)
 
@@ -44,11 +42,8 @@ _none_
 ```json
 {
   "type": "object",
-  "properties": {
-    "gpg_public_key": {
-      "type": "string"
-    }
-  },
-  "additionalProperties": false
+  "additionalProperties": {
+    "type": "string"
+  }
 }
 ```
