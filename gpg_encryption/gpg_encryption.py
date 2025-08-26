@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import Literal
 
@@ -48,19 +49,21 @@ def request_paginated_url(url: str, auth_token: str):
 
 
 def encrypt_document(content: bytes, public_key: str) -> str:
-    gpg = gnupg.GPG()
+    gnupg_home = "/tmp/.gnupg"  # in a serverless function, gnupg directory must be in tmp
+    os.makedirs(gnupg_home, exist_ok=True)
+
+    gpg = gnupg.GPG(gnupghome=gnupg_home)
     gpg.encoding = "utf-8"
     imported_key = gpg.import_keys(public_key)
 
     # getting recipient from the public key
     recipients = imported_key.fingerprints
-    encrypted = gpg.encrypt(content, recipients, always_trust=True)
+    encrypted = gpg.encrypt(content, recipients)
 
     if not encrypted.ok:
-        raise ValueError(f"Encryption failed: {encrypted.status}")
+        raise ValueError(f"Encryption failed: {encrypted.status}\n{encrypted.stderr}")
 
     return encrypted.data
-    # return base64.b64encode(encrypted.data).decode("ascii")
 
 
 def upload_encrypted_document(base_url: str, token: str, filename: str, content: bytes) -> str:
@@ -160,7 +163,11 @@ def rossum_hook_request_handler(payload: dict) -> dict:
     handle_new_document_relation(base_url, token, annotation, new_document_url, settings)
 
     return {
-        "id": payload.get("annotation", {}).get("id", None),
-        "type": "info",
-        "content": "Process completed successfully.",
+        "messages": [
+            {
+                "id": payload.get("annotation", {}).get("id", None),
+                "type": "info",
+                "content": "Process completed successfully.",
+            }
+        ]
     }
