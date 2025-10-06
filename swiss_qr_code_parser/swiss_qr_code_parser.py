@@ -107,74 +107,70 @@ def parse_qr_text(raw_data: str) -> ParsedQrData | None:
         else:
             raise ValueError(f"Unknown address type '{address_type}'")
 
-    try:
-        lines = raw_data.strip().splitlines()
-        result = ParsedQrData()
-        i = 0
+    lines = raw_data.strip().splitlines()
+    result = ParsedQrData()
+    i = 0
 
-        # --- Header ---
-        result.header, result.version, result.coding = lines[i : i + 3]
-        i += 3
+    # --- Header ---
+    result.header, result.version, result.coding = lines[i : i + 3]
+    i += 3
 
-        # --- Creditor Info ---
-        result.creditor_iban = lines[i]
-        i += 1
-        addr, consumed = _parse_address_block(lines, i)
-        result.creditor_address_type = addr.get("type")
-        result.creditor_name = addr.get("name")
-        result.creditor_street = addr.get("street")
-        result.creditor_house_no = addr.get("house_no")
-        result.creditor_postcode = addr.get("postcode")
-        result.creditor_city = addr.get("city")
-        result.creditor_country = addr.get("country")
-        i += consumed
+    # --- Creditor Info ---
+    result.creditor_iban = lines[i]
+    i += 1
+    addr, consumed = _parse_address_block(lines, i)
+    result.creditor_address_type = addr.get("type")
+    result.creditor_name = addr.get("name")
+    result.creditor_street = addr.get("street")
+    result.creditor_house_no = addr.get("house_no")
+    result.creditor_postcode = addr.get("postcode")
+    result.creditor_city = addr.get("city")
+    result.creditor_country = addr.get("country")
+    i += consumed
 
-        # --- Ultimate Creditor Info ---
-        addr, consumed = _parse_address_block(lines, i)
-        result.ultimate_creditor_address_type = addr.get("type")
-        result.ultimate_creditor_name = addr.get("name")
-        result.ultimate_creditor_street = addr.get("street")
-        result.ultimate_creditor_house_no = addr.get("house_no")
-        result.ultimate_creditor_postcode = addr.get("postcode")
-        result.ultimate_creditor_city = addr.get("city")
-        result.ultimate_creditor_country = addr.get("country")
-        i += consumed
+    # --- Ultimate Creditor Info ---
+    addr, consumed = _parse_address_block(lines, i)
+    result.ultimate_creditor_address_type = addr.get("type")
+    result.ultimate_creditor_name = addr.get("name")
+    result.ultimate_creditor_street = addr.get("street")
+    result.ultimate_creditor_house_no = addr.get("house_no")
+    result.ultimate_creditor_postcode = addr.get("postcode")
+    result.ultimate_creditor_city = addr.get("city")
+    result.ultimate_creditor_country = addr.get("country")
+    i += consumed
 
-        # --- Payment Amount ---
-        result.amount, result.currency = lines[i : i + 2]
-        i += 2
+    # --- Payment Amount ---
+    result.amount, result.currency = lines[i : i + 2]
+    i += 2
 
-        # --- Debtor Info ---
-        addr, consumed = _parse_address_block(lines, i)
-        result.debtor_address_type = addr.get("type")
-        result.debtor_name = addr.get("name")
-        result.debtor_street = addr.get("street")
-        result.debtor_house_no = addr.get("house_no")
-        result.debtor_postcode = addr.get("postcode")
-        result.debtor_city = addr.get("city")
-        result.debtor_country = addr.get("country")
-        i += consumed
+    # --- Debtor Info ---
+    addr, consumed = _parse_address_block(lines, i)
+    result.debtor_address_type = addr.get("type")
+    result.debtor_name = addr.get("name")
+    result.debtor_street = addr.get("street")
+    result.debtor_house_no = addr.get("house_no")
+    result.debtor_postcode = addr.get("postcode")
+    result.debtor_city = addr.get("city")
+    result.debtor_country = addr.get("country")
+    i += consumed
 
-        # --- Reference ---
-        result.reference_type, result.reference = lines[i : i + 2]
-        i += 2
+    # --- Reference ---
+    result.reference_type, result.reference = lines[i : i + 2]
+    i += 2
 
-        # --- Additional Information ---
-        add_info = lines[i]
-        # Check if it's structured bill information or an unstructured message
-        if add_info.startswith("//S1/"):
-            result.bill_information = add_info
-        else:
-            result.unstructured_message = add_info
-        i += 1
+    # --- Additional Information ---
+    add_info = lines[i]
+    # Check if it's structured bill information or an unstructured message
+    if add_info.startswith("//S1/"):
+        result.bill_information = add_info
+    else:
+        result.unstructured_message = add_info
+    i += 1
 
-        # --- Trailer ---
-        result.trailer = lines[i]
+    # --- Trailer ---
+    result.trailer = lines[i]
 
-        return result
-
-    except (IndexError, ValueError) as e:
-        raise Exception(f"Failed to parse QR code data: {e}")
+    return result
 
 
 class RossumClient:
@@ -209,19 +205,23 @@ def rossum_hook_request_handler(payload) -> dict | None:
 
     settings = from_dict(Settings, payload.get("settings", {}))
 
-    qr_code_str = getattr(t.field, settings.qr_code_datapoint, None)
-    if not qr_code_str:
-        raise ValueError(
-            f"QR code datapoint '{settings.qr_code_datapoint}' is empty or not found in the document fields."
-        )
+    qr_code_field = getattr(t.field, settings.qr_code_datapoint, None)
+    if qr_code_field:
 
-    qr_data = parse_qr_text(qr_code_str)
+        try:
+            qr_data = parse_qr_text(qr_code_field)
+        except Exception as e:
+            return {
+                "automation_blockers": [
+                    {"id": qr_code_field.id, "content": f"Failed to parse Swiss QR code data ({e})"}
+                ]
+            }
 
-    for field_name, datapoint_name in asdict(settings.extracted_data_mapping).items():
-        if not datapoint_name:
-            continue
-        value = getattr(qr_data, field_name)
-        setattr(t.field, datapoint_name, value)
+        for swiss_field_name, configured_datapoint_name in asdict(settings.extracted_data_mapping).items():
+            if not configured_datapoint_name:
+                continue
+            value = getattr(qr_data, swiss_field_name)
+            setattr(t.field, configured_datapoint_name, value)
 
     response = t.hook_response()
     return response
