@@ -134,9 +134,9 @@ def rossum_hook_request_handler(payload) -> dict | None:
     if not payload.get("rossum_authorization_token"):
         raise ValueError("No Rossum authorization token provided in the payload")
 
-    if not (payload["event"] == "annotation_content" and payload["action"] == "export"):
+    if not (payload["event"] == "annotation_content" and payload["action"] in ["confirm", "export"]):
         logging.info(
-            f"Skipping hook, it runs only on event == 'annotation_status' and status == 'exported'. "
+            f"Skipping hook, it runs only on event == 'annotation_content' and action == 'confirm' or 'export'. "
             f"(Current event: {payload['event']}, current status: {payload['annotation']['status']})"
         )
         return {"messages": []}
