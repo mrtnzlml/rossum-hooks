@@ -136,7 +136,7 @@ def rossum_hook_request_handler(payload) -> dict | None:
 
     if not (payload["event"] == "annotation_content" and payload["action"] in ["confirm", "export"]):
         logging.info(
-            f"Skipping hook, it runs only on event == 'annotation_content' and action == 'confirm' or 'export'. "
+            f"Skipping hook, it runs only on event == 'annotation_status' and action == 'confirm' or 'export'. "
             f"(Current event: {payload['event']}, current status: {payload['annotation']['status']})"
         )
         return {"messages": []}
